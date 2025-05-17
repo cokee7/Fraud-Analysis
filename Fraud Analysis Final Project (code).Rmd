@@ -1,0 +1,1677 @@
+---
+title: "ISOM3018 (001)
+Business Data Mining and Visualization - Final Project(coding)
+Group A
+BC104565 DONG XINYANG
+BC104782 LIU JIAYI 
+BC105164 ZHAO JIALE
+BC103881 ZHONG YUXI
+BC105553 XIA BINGYING
+"
+output:
+  word_document: default
+date: "2024-05-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Executive Summary
+
+In order to accomplish the goal of reducing fraud transactions and maximizing profit, we would like to work with the “fraud_data” dataset through this project. We will first prepare our dataset, which will include removing redundant and unnecessary data and addressing incorrect data. Next, we'll attempt to determine whether resampling the data is required. The approach with the highest accuracy would be selected after comparing the resampling methods with the non-resampling method. Next, we attempt to use visualizations to explore the internal relationship within the data and illustrate the link between the target variable and the other highly correlated variables. In order to determine which of these three prediction models—KNN, logistic regression, and decision tree—is the most suitable, we next attempt to compare them. After that, we will provide an overview of the most important conclusions drawn from the analysis, talk about the importance of the traits that were found, recommend the best models, and address any possible commercial ramifications of our findings. In the end, we will conclude the limitations of our model and look for improvement.
+
+# 2. Data Overview
+
+(The main textual part is in the report.)
+
+```{r Data Overview}
+data <- read.csv("dataset_fraud.csv")
+
+# Check the columns and rows
+dimensions <- dim(data)
+print(dimensions)
+
+# Check the structure of data
+str(data)
+
+# Show the initial data summary
+summary(data)
+
+# Check the number of empty strings in exact columns
+num_empty_strings1 <- sum(data $ credit_limited == "")
+print(paste("credit_limited empty strings: ", num_empty_strings1))
+
+num_empty_strings2 <- sum(data $ type == "")
+print(paste("type empty strings: ", num_empty_strings2))
+
+num_empty_strings3 <- sum(data $ age == "")
+print(paste("age empty strings: ", num_empty_strings3))
+
+num_empty_strings4 <- sum(data $ online_or_not == "")
+print(paste("online_or_not empty strings: ", num_empty_strings4))
+
+# Show the number of each value in the gender column
+library(dplyr)
+gender_counts <- data %>% group_by(gender) %>% summarize(count=n())
+print(gender_counts)
+
+# Print job column
+job <- data $ Job
+print(job)
+
+# Count number of GB in bank_column
+gb_count <- sum(grepl("GB", data $ bank_country))
+print(paste("Number of GB: ", gb_count))
+
+# Count number of 2023 in year
+num_count <- sum(grepl(2023, data $ year))
+print(paste("Number of 2023: ", num_count))
+```
+
+# 3. Objectives
+
+## **Business Objectives**
+
+1.  Maximize the profit of financial institutions. With the implementation of the project, financial institutions can better fix the problems of the security protocols and improve the security, to better protect their assets. Also by implementing the idea, institutions can identify different customer segments and tailor the services accordingly. This can improve customer experiences, thus maximizing the profit of institutions.
+
+2.  Maximize the profit of customers by increasing the credit limit. By implementing the project idea, financial institutions can provide higher credit limits to the customers, which will increase the satisfaction and loyalty of customers. In this way, customers make larger value transactions, thereby enhancing their financial capabilities.
+
+3.  Minimize the financial losses. Implementing the project idea can help institutions detect and mitigate fraudulent activities, which better maintain the trust of the customers and retain the customers, thereby minimizing the losses.
+
+## **Analytical Objectives**
+
+(By utilizing machine learning methods like random forests, logistic regression, decision trees, and KNN.)
+
+1.  Risk Assessment and Management: Create risk assessment models that forecast each loan application's default risk based on past data and financial indicators including income, loan-to-value (LTV) ratio, and credit score.
+
+2.  Fraud Detection: To spot any fraudulent activity, use machine learning algorithms to examine transaction patterns and odd activity.
+
+3.  Increasing Client Loyalty: To learn about the demands and preferences of your consumers, do in-depth analytical research on their loan habits and credit.
+
+4.  Optimizing Credit Scoring: Utilizing cutting-edge data analysis techniques on customers' past credit data, improve and enhance credit scoring models to guarantee that credit scores accurately represent actual credit risk.
+
+## **Expected Outcomes**
+
+1.  Risk Assessment and Management: To protect the institution's assets, financial institutions will have a strong system in place that reduces financial risks by precisely assessing the level of risk attached to each loan application.
+
+2.  Fraud Identification: A strong fraud detection system that instantly notifies the financial institution of any questionable activity, greatly lowering the possibility of financial loss and improving the security of the institution's assets.
+
+3.  Increasing Client Loyalty Enhanced customer satisfaction stems from the provision of customized financial goods and services that cater to individual client demands, hence improving customer retention and loyalty.
+
+4.  Credit scoring optimization: More trustworthy and equitable credit evaluations that help consumers and financial institutions alike, resulting in improved lending practices decision-making. 
+
+# **4. Data Preparation**
+
+(The main textual part is in the report.)
+
+## 4.1 Data Wrangling
+
+```{r Data Wrangling}
+# Fill in NA values with the median
+median_value1 <- median(data $ term, na.rm = TRUE)
+data $ term[is.na(data $ term)] <- median_value1
+
+median_value2 <- median(data $ property_value, na.rm = TRUE)
+data $ property_value[is.na(data $ property_value)] <- median_value2
+
+median_value3 <- median(data $ income, na.rm = TRUE)
+data $ income[is.na(data $ income)] <- median_value3
+
+median_value4 <- median(data $ LTV, na.rm = TRUE)
+data $ LTV[is.na(data $ LTV)] <- median_value4
+
+median_value5 <- median(data $ dtir1, na.rm = TRUE)
+data $ dtir1[is.na(data $ dtir1)] <- median_value5
+
+median_value6 <- median(data $ isFlagged, na.rm = TRUE)
+data $ isFlagged[is.na(data $ isFlagged)] <- median_value6
+
+# Fill in empty strings with the most frequent value
+credit_limited_counts <- data %>% group_by(credit_limited) %>% summarize(count=n())
+print(credit_limited_counts)
+data $ credit_limited[data $ credit_limited == ""] <- "cf"
+
+type_counts <- data %>% group_by(type) %>% summarize(count=n())
+print(type_counts)
+data $ type[data $ type == ""] <- "CASHOUT"
+
+age_counts <- data %>% group_by(age) %>% summarize(count=n())
+print(age_counts)
+data $ age[data $ age == ""] <- "45-54"
+
+online_or_not_counts <- data %>% group_by(online_or_not) %>% summarize(count=n())
+print(online_or_not_counts)
+data $ online_or_not[data $ online_or_not == ""] <- "not"
+
+# Fill "Sex Not Available" and "Joint" in the gender column with "Male" and "Female" (by ratio)
+male_count <- sum(data$gender == "Male")
+female_count <- sum(data$gender == "Female")
+
+male_ratio = male_count / (male_count + female_count)
+female_ratio = female_count / (male_count + female_count)
+
+SNA_count <- sum(data$gender == "Sex Not Available")
+joint_count <- sum(data$gender == "Joint")
+
+male_count1 <- as.integer(male_ratio * SNA_count)
+female_count1 <- SNA_count - male_count1
+male_count2 <- as.integer(male_ratio * joint_count)
+female_count2 <- joint_count - male_count2
+
+data[data$gender == "Sex Not Available", "gender"] <- rep(c("Male", "Female"), times = c(male_count1, female_count1))
+data[data$gender == "Joint", "gender"] <- rep(c("Male", "Female"), times = c(male_count2, female_count2))
+
+# Remove extreme value
+max_value1 <- max(data $ property_value)
+min_value1 <- min(data $ property_value)
+condition2 <- data $ property_value != max_value1 & data $ property_value != min_value1
+data_clean2 <- data[condition2, ]
+
+max_value2 <- max(data_clean2 $ income)
+condition3 <- data_clean2 $ income != max_value2
+data_clean3 <- data_clean2[condition3, ]
+
+max_value3 <- max(data_clean3 $ LTV)
+min_value2 <- min(data_clean3 $ LTV)
+condition4 <- data_clean3 $ LTV != max_value3 & data_clean3 $ LTV != min_value2
+data_clean4 <- data_clean3[condition4, ]
+
+# Remove job column
+data_clean5 <- data_clean4[, -which(names(data_clean4) == "Job")]
+
+# Bin useless columns
+data_clean6 <- data_clean5[, -which(names(data_clean5) == "bank_country")]
+data_clean7 <- data_clean6[, -which(names(data_clean6) == "year")]
+data_clean8 <- data_clean7[, -which(names(data_clean7) == "id")]
+data_clean9 <- data_clean8[, -which(names(data_clean8) == "name")]
+data_clean10 <- data_clean9[, -which(names(data_clean9) == "phone_number")]
+data_clean11 <- data_clean10[, -which(names(data_clean10) == "SSN")]
+data_clean12 <- data_clean11[, -which(names(data_clean11) == "email")]
+data_clean13 <- data_clean12[, -which(names(data_clean12) == "family_credit_type")]
+
+# Convert all values of "whether" to "1 or 2"
+data_clean13 $ credit_limited <- factor(data_clean13 $ credit_limited)
+data_clean13 $ credit_limited <- as.numeric(data_clean13 $ credit_limited)
+
+data_clean13 $ open_credit <- factor(data_clean13 $ open_credit)
+data_clean13 $ open_credit <- as.numeric(data_clean13 $ open_credit)
+
+data_clean13 $ personal_or_business <- factor(data_clean13 $ personal_or_business)
+data_clean13 $ personal_or_business <- as.numeric(data_clean13 $ personal_or_business)
+
+data_clean13 $ online_or_not <- factor(data_clean13 $ online_or_not)
+data_clean13 $ online_or_not <- as.numeric(data_clean13 $ online_or_not)
+
+data_clean13 $ interest_only <- factor(data_clean13 $ interest_only)
+data_clean13 $ interest_only <- as.numeric(data_clean13 $ interest_only)
+
+data_clean13 $ lpsm <- factor(data_clean13 $ lpsm)
+data_clean13 $ lpsm <- as.numeric(data_clean13 $ lpsm)
+
+data_clean13 $ secured_by <- factor(data_clean13 $ secured_by)
+data_clean13 $ secured_by <- as.numeric(data_clean13 $ secured_by)
+
+data_clean13 $ security_type <- factor(data_clean13 $ security_type)
+data_clean13 $ security_type <- as.numeric(data_clean13 $ security_type)
+
+
+# Retain only the numerical portion of the total_units column
+data_clean13 $ total_units <- gsub("\\D", "", data_clean13 $ total_units)
+data_clean13 $ total_units <- as.numeric(data_clean13 $ total_units)
+
+write.csv(data_clean13, "data_modified.csv", row.names = FALSE)
+```
+
+## 4.2 Feature Selection
+
+At this stage, we will try to select the appropriate feature to be used in the later analysis.
+
+```{r Correlation}
+library(corrplot)
+numeric_data <- data_clean13[sapply(data_clean13, is.numeric)]
+correlation_matrix <- cor(numeric_data)
+corrplot(correlation_matrix, method = "circle")
+```
+
+Furthermore, we will try to select the most useful features among 23 items by using the Random Forest method
+
+```{r Feature Selection}
+library(randomForest)
+library(caret)
+
+str(data_clean13)
+
+# Categorical response variable is required by rfe()
+data_clean13 |> 
+  mutate(isFraud = factor(isFraud, levels = c(0, 1), 
+                          labels = c("No", "Yes"))) -> 
+  data_clean13
+
+head(data_clean13)
+str(data_clean13)
+# Data preparation 
+set.seed(1)
+train.index <- createDataPartition(data_clean13$isFraud, p = 0.8, list = FALSE)
+train.df <- data_clean13[train.index,] 
+valid.df <- data_clean13[-train.index,] 
+train.df1 <- train.df[1:10000, ]
+str(train.df)
+# Define an RFE control using random forest
+control <- rfeControl(functions = rfFuncs, # random forest
+                      method = "cv",# cross-validation
+                      number = 5) # the number of folds
+
+# Run RFE 
+rfe_result <- rfe(x = train.df[, 1:23], 
+                  y = train.df[, 24], 
+                  sizes = c(1:5), 
+                  rfeControl = control)
+
+# Results 
+rfe_result
+predictors(rfe_result) # Names of variables
+varImp(rfe_result) # Variable importance
+
+```
+
+We also analyzed what will be the most number of features selected
+
+```{r Feature Selection-PLOTTING}
+# Plotting important features
+varimp_data <- data.frame(feature = row.names(varImp(rfe_result))[1:10],
+                          importance = varImp(rfe_result)[1:10, 1])
+
+ggplot(data = varimp_data, 
+       aes(x = reorder(feature, -importance), y = importance, fill = feature)) +
+  geom_bar(stat="identity") + labs(x = "Features", y = "Variable Importance") + 
+  geom_text(aes(label = round(importance, 2)), vjust=1.6, color="white", size=4) +
+  theme(legend.position = "none")
+
+
+ggplot(data = rfe_result, metric = "Accuracy")
+ggplot(data = rfe_result, metric = "Kappa") # Kappa is the accuracy relative to random guessing
+```
+
+## 4.3 Data Resampling
+
+Data imbalance is a very important issue in the modeling process, so here we need to determine whether the problem exists.
+
+```{r Data Resampling}
+library(smotefamily)
+
+#Plot the distribution of isFraud
+ggplot(data_clean13, aes(x = isFraud)) +
+  geom_bar( fill= "skyblue") +
+  labs(x = 'Fraud or not', y = 'Count', title = 'Count of Fraud and Non-Fraud')
+
+#Training the default tree
+library(rpart)
+default.ct <-
+  rpart(isFraud ~ .,
+        data = train.df,
+        method = "class")
+
+default.ct.pred <-
+  predict(default.ct,
+          newdata = valid.df[, -24],
+          type = "class")
+
+confusionMatrix(
+  default.ct.pred,
+  as.factor(valid.df$isFraud),
+  mode = "prec_recall",
+  positive = "Yes"
+)
+```
+
+Firstly, resample the data using base R
+
+```{r resampling}
+table(train.df$isFraud)
+Yes.idx <-
+  which(train.df$isFraud == "Yes") # Indices of all positive cases
+No.idx <-
+  which(train.df$isFraud == "No") # Indices of all negative cases
+length(Yes.idx)
+length(No.idx)
+```
+
+### Undersampling
+
+```{r undersampling}
+# Undersampling the majority class 
+under.idx <- c(sample(No.idx, length(Yes.idx)), 
+               Yes.idx) # Undersample "No", and combine with "Yes"
+length(under.idx)
+train.under <-
+  train.df[under.idx, ] # Create a new dataframe with the indices in "down"
+str(train.under)
+table(train.under$isFraud)
+
+#Performance of undersampling
+default.ct.u <- rpart(isFraud ~ ., data = train.under, method = "class")
+default.ct.pred.u <- predict(default.ct.u, newdata = valid.df[, -24], type = "class")
+confusionMatrix(default.ct.pred.u, as.factor(valid.df$isFraud),mode = "prec_recall", positive = "Yes")
+```
+
+### Oversampling
+
+```{r oversampling}
+# Oversampling the minority 
+over.idx <- c(sample(Yes.idx, length(No.idx), replace = TRUE), No.idx)
+length(over.idx)
+train.over <- train.df[over.idx, ]
+str(train.over)
+table(train.over$isFraud)
+
+#Performance of oversampling
+default.ct.o <- rpart(isFraud ~ ., data = train.over, method = "class")
+default.ct.pred.o <- predict(default.ct.o, newdata = valid.df[, -24], type = "class")
+confusionMatrix(default.ct.pred.o, as.factor(valid.df$isFraud),mode = "prec_recall", positive = "Yes")
+```
+
+# 5. Visualization
+
+(The main textual part is in the report.)
+
+## 5.1 Distribution of customers from different countries
+
+```{r}
+visual_data <- data_clean13
+visual1 <- as.data.frame((table(visual_data$country)))
+visual1 |> ggplot(aes(x="", y = Freq, fill = Var1))+
+  geom_bar(width = 2, stat = "identity",color="white")+
+  coord_polar('y')+
+  theme_void()+
+  scale_fill_manual(values=rainbow(4))+
+  labs(fill = "country")+
+  geom_text(aes(y = sum(Freq)-cumsum(Freq)+Freq/2,
+                label = scales::percent(Freq/sum(Freq))), size=4)
+```
+
+## 5.2 Distribution of customers across different age and gender
+
+```{r}
+visual2 <- as.data.frame((table(visual_data$gender,visual_data$age)))
+visual2|>
+  ggplot(aes(x = Var2, y = Freq, fill = Var1)) +
+  geom_bar(stat = "identity",alpha = 0.7) +      
+  labs(title = "Distribution of customers in different age and gender", x = "age", y = "Frequency",fill ="gender") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## 5.3 Distribution of customers and amount between business and personal
+
+```{r}
+visual3.1 <- as.data.frame((table(data_clean12$personal_or_business)))
+visual3.1 |> ggplot(aes(x="", y = Freq, fill = Var1))+
+  geom_bar(width = 2, stat = "identity",color="white")+
+  coord_polar('y')+
+  theme_void()+
+  scale_fill_manual(values=rainbow(3))+
+  labs(fill = "Business Type")+
+  geom_text(aes(y = sum(Freq)-cumsum(Freq)+Freq/2,
+                label = scales::percent(Freq/sum(Freq))), size=4)
+
+visual3.2 <- aggregate(amount ~ personal_or_business,data_clean12,mean)
+visual3.2 |>
+  ggplot(aes(x = personal_or_business, y = amount)) +
+  geom_bar(stat = "identity",alpha = 0.7) +      
+  labs(title = "Comparison of Transfer amount between personal or business", x = "type of business", y = "Amount") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## 5.4 Fraud proportion by one-time payment or not
+
+```{r}
+visual4<- aggregate(isFraud ~ lpsm,data_clean12,mean)
+visual4 |>
+  ggplot(aes(x = lpsm, y = isFraud)) +
+  geom_bar(stat = "identity",alpha = 0.7,fill = "red") +      
+  labs(title = "Fraud proportion by  one-time payment or not", x = "lpsm", y = "Fraud Proportion",) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+## 5.5 Visualization of fraud proportion by debt-to-income ratio
+
+```{r}
+visual5 <- aggregate(isFraud ~ dtir1,visual_data,mean)
+visual5 |>
+  ggplot(aes(x = dtir1, y = isFraud,fill = dtir1)) +
+  geom_bar(stat = "identity",alpha = 0.7) +      
+  labs(title = "Fraud proportion by debt-to-income ratio ", x = "debt-to-income ratio ", y = "Fraud Volumn") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+## 5.6 Comparison of fraud proportion concerning whether the transaction was online or not
+
+```{r}
+visual6 <- aggregate(isFraud ~ online_or_not,data_clean12,mean)
+visual6 |>
+  ggplot(aes(x = online_or_not, y = isFraud, fill = online_or_not)) +
+  geom_bar(stat = "identity",alpha = 0.7) +      
+  labs(title = "Fraud proportion by transaction type", x = "online_or_not", y = "Fraud Proportion",fill="online or not") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+# 6.Modeling
+
+(The main textual part is in the report.)
+
+## 6.1 Modeling for all features
+
+### 6.1.1 KNN
+
+```{r packages1}
+install.packages("FNN", dependencies = TRUE)
+install.packages("caret", dependencies = TRUE)
+install.packages("ggplot2", dependencies = TRUE)
+library(ggplot2)
+library(caret)
+library(FNN)
+```
+
+```{r prepare data1}
+data.df <- read.csv("data_modified.csv") # "data_modified.csv" is the file of the data after doing the data preparation.
+str(data.df)
+```
+
+```{r Randomly sample 60% of cases, and get their indices1}
+set.seed(111) 
+train.index <- sample(1:nrow(data.df), nrow(data.df) * 0.6) 
+train.df <- data.df[train.index, ] 
+valid.df <- data.df[-train.index, ]# The rest 40% for validation hold-outs
+```
+
+```{r The IDs (names) of cases1}
+rownames(data.df) 
+rownames(train.df) 
+rownames(valid.df)
+```
+
+```{r Create datasets for normalization1}
+train.norm.df <- train.df 
+valid.norm.df <- valid.df 
+data.norm.df <- data.df
+```
+
+```{r z-transform all data1}
+library(caret) 
+norm.values <- preProcess(train.df[, 1:23],                            
+                          method = c("center", "scale"))
+```
+
+```{r Apply normalization parameter to all datasets1}
+train.norm.df[, 1:23] <- predict(norm.values, train.df[, 1:23])  
+valid.norm.df[, 1:23] <- predict(norm.values, valid.df[, 1:23]) 
+data.norm.df[, 1:23] <- predict(norm.values, data.df[, 1:23]) 
+data.df 
+data.norm.df
+```
+
+```{r KNN can only be applied on numeric data.1}
+numeric_columns <- sapply(train.norm.df, is.numeric)
+```
+
+```{r Find the best K value (1-100)1}
+library(FNN) 
+accuracy.df <- data.frame(k = seq(1, 100, 1),                            
+                          accuracy = rep(0, 100)) 
+for (i in 1:100) {   
+  knn.pred <- knn(     
+    train = train.norm.df[, numeric_columns],     
+    test = valid.norm.df[, numeric_columns],     
+    cl = train.norm.df[, 24],     
+    k = i   
+    )   
+  pred <- factor(knn.pred, levels = c("Yes", "No"))   
+  actual <- factor(valid.norm.df[, 24], levels = c("Yes", "No"))      
+  
+  accuracy.df[i, "accuracy"] <- confusionMatrix(pred, actual)$overall[1] 
+  }  
+
+accuracy.df 
+# Find the row with the highest accuracy 
+max_accuracy_row_index <- which.max(accuracy.df$accuracy) 
+max_accuracy_k <- accuracy.df$k[max_accuracy_row_index] 
+cat("Highest accuracy k value:", max_accuracy_k) 
+```
+
+```{r Create the plot of chooosing the best K 1}
+accuracy_plot <- ggplot(data = accuracy.df, aes(x = k, y = accuracy)) +   
+  geom_line() +   
+  geom_point() +   
+  labs(title = "Accuracy vs. k Value",        
+       x = "k Value",        
+       y = "Accuracy") +   
+  theme_minimal() 
+plot(accuracy_plot) 
+ggsave("accuracy_plot.png", plot = accuracy_plot, width = 10, height = 6)
+```
+
+The result for best K is 6
+
+```{r k =6}
+nn6 <- knn(   
+  train = train.norm.df[, numeric_columns],   
+  test = valid.norm.df[, numeric_columns],   
+  cl = train.norm.df[, 24],   
+  k = 6,   
+  prob = TRUE 
+  ) 
+
+nn6 
+(pred <- factor(nn6, levels = c("Yes", "No"))) 
+(actual <- factor(valid.norm.df[, 24], levels = c("Yes", "No")))    
+
+# confusionMatrix 
+# The confusionMatrix method here uses a fixed cutoff = 0.5.  
+confusionMatrix(pred, actual) 
+confusionMatrix(pred, actual, mode = "prec_recall") 
+confusionMatrix(pred, actual)$table 
+confusionMatrix(pred, actual)$byClass["Precision"] 
+confusionMatrix(pred, actual)$byClass["Recall"] 
+confusionMatrix(pred, actual)$overall[1] 
+confusionMatrix(pred, actual)$overall["Accuracy"]
+```
+
+```{r Cross-validation}
+# Define the number of folds for cross-validation 
+num_folds <- 10   
+
+# Define the control parameters for cross-validation 
+ctrl <- trainControl(method = "cv",   # Use cross-validation                      
+                     number = num_folds)  
+k_grid <- expand.grid(k = seq(1, 100, by = 1))  
+
+# Train the KNN model using cross-validation 
+knn_model <- train(train.norm.df[, numeric_columns],                       
+                   y = train.norm.df[, 24],                       
+                   method = "knn",   # Use k-nearest neighbors                    
+                   trControl = ctrl,   # Use the defined control parameters       
+                   tuneGrid = k_grid)     
+
+# Print the cross-validated results 
+print(knn_model)  
+
+# Plot the cross-validated results 
+plot(knn_model)  
+
+# Plot the cross-validated results with modified x-axis labels 
+cv_results <- knn_model$results  
+
+# Customize x-axis labels 
+x_labels <- seq(0, 100, by = 10)    
+
+# Create the plot using ggplot2 
+ggplot(cv_results, aes(x = k, y = Accuracy)) +   
+  geom_line() +   
+  xlab("k") +   
+  ylab("Accuracy") +   
+  scale_x_continuous(breaks = x_labels, labels = x_labels)
+```
+
+The result for best K is 11
+
+```{r K = 11}
+nn11 <- knn(   
+  train = train.norm.df[, numeric_columns],   
+  test = valid.norm.df[, numeric_columns],   
+  cl = train.norm.df[, 24],   
+  k = 11,   
+  prob = TRUE 
+  ) 
+nn11   
+(pred <- factor(nn11, levels = c("Yes", "No"))) 
+(actual <- factor(valid.norm.df[, 24], levels = c("Yes", "No")))    
+
+# confusionMatrix 
+# The confusionMatrix method here uses a fixed cutoff = 0.5.  
+confusionMatrix(pred, actual) confusionMatrix(pred, actual, mode = "prec_recall") 
+confusionMatrix(pred, actual)$table 
+confusionMatrix(pred, actual)$byClass["Precision"] 
+confusionMatrix(pred, actual)$byClass["Recall"] 
+confusionMatrix(pred, actual)$overall[1] 
+confusionMatrix(pred, actual)$overall["Accuracy"]
+```
+
+### 6.1.2 Logistic Regression
+
+```{r Packages2}
+install.packages("tidyverse", dependencies = TRUE)
+install.packages("caret", dependencies = TRUE)
+install.packages("ggplot2", dependencies = TRUE)
+library(ggplot2)
+library(caret) 
+library(tidyverse)
+```
+
+```{r Prepare enviornment and data1, echo=FALSE}
+rm(list = ls())
+data.df <- read_csv("data_modified.csv") # dataset after data preparation
+summary(data.df)
+
+library(summarytools)
+data.df |> dfSummary() |> view()
+
+data.df$isFraud<-factor( bank.df$isFraud,
+                        levels=c("Yes","No"),
+                        labels=c("Yes","No"))
+```
+
+```{r Partition data1}
+set.seed(3018)
+train.index <- sample(c(1:nrow(data.df)), nrow(data.df) * 0.6)
+```
+
+```{r Create the training and validation datasets1}
+train.df <- data.df[train.index,]
+valid.df <- data.df[-train.index,]
+str(train.df); str(valid.df)
+```
+
+```{r Fit the logistic regression model1}
+logit.reg <- glm(isFraud ~ . - security_type, data = train.df, family = "binomial") options(scipen = 999)  
+summary(logit.reg) 
+coef(logit.reg)
+```
+
+```{r Calculate the odds1}
+result.with.odds <- data.frame(coefficients = coef(logit.reg), Odds = exp(coef(logit.reg))) 
+round(result.with.odds, 3)
+```
+
+```{r Predict1}
+logit.reg.pred <-   predict(logit.reg,            
+                            valid.df[, -24],                
+                            type = "response")    
+
+# first 20 actual and predicted records 
+data.frame(actual = valid.df$isFraud[1:20],             
+           predicted = logit.reg.pred[1:20]) 
+```
+
+```{r Convert values to factor with levels1}
+predicted <- factor(ifelse(logit.reg.pred > 0.5, "Yes", "No"), levels = c("Yes", "No")) 
+actual <- factor(valid.df$isFraud, levels = c("Yes", "No")) 
+```
+
+```{r Calculate confusion matrix1}
+confusionMatrix(predicted, actual, mode = "prec_recall", positive = "Yes")
+```
+
+```{r Visualizing probabilities va label in validation data1}
+data.frame(actual = valid.df$isFraud,             
+           predicted = logit.reg.pred) |>    
+  sample_n(10000) |> # 10000 cases      
+  ggplot(aes(x=predicted,y=actual))+   
+  geom_point()+   
+  geom_jitter(width = 0.1,                   
+              height = 0.1,                
+              aes(colour = actual)) 
+table(valid.df$isFraud) 
+ggplot(valid.df, aes(factor(isFraud),fill=isFraud))+   
+  geom_bar(aes(y=(..count..)/sum(..count..))) +   
+  ylab("Ratio") 
+```
+
+```{r The imbalance of the data1}
+table(valid.df$isFraud) valid.df |>    
+  ggplot(aes(x = factor(isFraud), # two classes              
+             fill = factor(isFraud))) #two colors   
+geom_bar(aes(y = after_stat(count / sum(count))),            
+         alpha = 0.7) +     
+  ylab("Ratio")
+```
+
+```{r Cross-valiation LR1}
+train.index.cv <- createDataPartition(data.df$isFraud, p=0.9, list=FALSE) 
+train.df.cv <- data.df[ train.index.cv, ] # for training and cross-validation test.
+df.cv <- data.df[ -train.index.cv, ] # for testing!  
+
+# Define training control using caret (glm has no built-in CV) 
+train.ctrl.cv <- trainControl(method = "cv", number = 6)  
+lr.model <- train(   
+  isFraud ~ .,   
+  data = train.df.cv,   
+  trControl = train.ctrl.cv,   
+  method = "glm",   
+  family = binomial() 
+  )  
+
+summary(lr.model)
+```
+
+```{r Generate predicted probabilities on the test dataset1}
+(pred <- predict(lr.model, newdata=test.df.cv)) 
+confusionMatrix(data=pred,                  
+                test.df.cv$isFraud,                  
+                mode = "prec_recall",                 
+                positive = "Yes")
+```
+
+```{r Variable importance1}
+varImp(lr.model)  
+install.packages("regclass")  
+library(regclass) 
+VIF(logit.reg)
+```
+
+### 6.1.3 Decision Tree
+
+```{r Packages3}
+library(rpart) 
+library(rpart.plot) 
+library(visNetwork) 
+library(caret)  
+library(adabag)  
+library(randomForest)
+```
+
+```{r Prepare the data1}
+data <- read.csv("data_modified.csv") 
+summary(data) set.seed(3018) 
+train.index <- createDataPartition(y = data$isFraud,                              
+                                   p = 0.6,                                    
+                                   list = FALSE)  
+train.df <- data[train.index,] 
+valid.df <- data[-train.index,] 
+```
+
+```{r Get prediction on training set with default tree1}
+default.ct <- rpart(   
+  isFraud ~ .,    
+  data = train.df,   
+  method = "class",        
+  cp = 0.01,    # complexity parameter   
+  minsplit = 1  # the minimum number of observations that must exist in a node in order for a split to be attempted. 
+  )  
+
+# plot tree 
+rpart.plot(default.ct) 
+visTree(default.ct, data = train.df, main = "default.ct tree") 
+```
+
+```{r Variable importance2}
+default.ct$variable.importance
+```
+
+```{r Check performance for default tree1}
+default.ct.point.pred.train <-   
+  predict(default.ct, train.df, type = "class") 
+confusionMatrix(default.ct.point.pred.train,                 
+                as.factor(train.df$isFraud),                 
+                mode = "prec_recall",                 
+                positive = "Yes") 
+```
+
+```{r Full tree1}
+deeper.ct <- rpart(   
+  isFraud ~ .,    
+  data = train.df,   
+  method = "class",        
+  cp = 0,               # cp = 0: no pruning at all   
+  minsplit = 1          # the min # of cases for another split 
+  )  
+
+rpart.plot(deeper.ct)  
+
+# count the # of leaves 
+sum(deeper.ct$frame$var == "<leaf>")  
+
+## A better visualization of complex trees  
+visTree(deeper.ct, main = "deeper.ct tree") 
+```
+
+```{r Default tree vs. full tree on training data1}
+# default tree on training set 
+d_tp <- predict(default.ct, train.df, type = "class") 
+d_tc <- confusionMatrix(d_tp, as.factor(train.df$isFraud), mode = "prec_recall", positive = "Yes")  
+
+# full tree on training set 
+dp_tp <- predict(deeper.ct, train.df, type = "class") 
+dp_tc <- confusionMatrix(dp_tp, as.factor(train.df$isFraud), mode = "prec_recall", positive = "Yes")
+```
+
+```{r Default tree vs. full tree on validation data1}
+# default tree on validation set 
+d_vp <- predict(default.ct, valid.df, type = "class") 
+d_vc <- confusionMatrix(d_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes")  
+
+# full tree on validation set 
+dp_vp <- predict(deeper.ct, valid.df, type = "class") 
+dp_vc <- confusionMatrix(dp_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes") 
+confusionMatrix(dp_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes")
+```
+
+```{r Compare key results in a table1}
+result <- data.frame(   
+  Prec = c(d_tc$byClass["Precision"], dp_tc$byClass["Precision"], d_vc$byClass["Precision"], dp_vc$byClass["Precision"]),   
+  Recall = c(d_tc$byClass["Recall"], dp_tc$byClass["Recall"], d_vc$byClass["Recall"], dp_vc$byClass["Recall"]),   
+  F1 = c(d_tc$byClass["F1"], dp_tc$byClass["F1"], d_vc$byClass["F1"], dp_vc$byClass["F1"]) )  
+
+result <- cbind(Model = c("Default", "Full", "Default", "Full"),                 
+                Data = c("Train", "Train", "Valid", "Valid"),                 
+                round(result, 3))  # add 2 columns  
+
+print(result)
+```
+
+```{r Reshape for plotting1}
+library(tidyr)  
+
+res_plot <- result |>    
+  pivot_longer(cols = c("Prec", "Recall", "F1"), names_to = "Metric", values_to = "Value") 
+
+library(ggplot2) 
+ggplot(res_plot, aes(x = Model, y = Value, fill = Data, color = Data)) +   
+  geom_col(position = "dodge") +     
+  facet_wrap(~ Metric, scales = "free_y") +   
+  labs(x = "Model", y = "Value", fill = "Data", color = "Data")
+```
+
+```{r Find the best vp value1}
+cv.ct <- rpart(   
+  isFraud ~ .,   
+  data = data,        # the whole dataset for cross-validation   
+  method = "class",   
+  cp = 0.01,   
+  minsplit = 5,          # no split when branch < 5   
+  xval = 5               # 5-fold cross-validation 
+  ) 
+printcp(cv.ct) # printing the cp table 
+plotcp(cv.ct)  # plotting the cp table 
+(cp.min.err <- cv.ct$cptable[which.min(cv.ct$cptable[, "xerror"]), "CP"])
+```
+
+```{r Prune using the cp that minimizes xerror1}
+pruned.ct <- prune(cv.ct, cp = cp.min.err)  
+
+# how does this pruned tree look like? 
+sum(pruned.ct$frame$var == "<leaf>")  
+visTree(pruned.ct, main = "pruned.ct tree") 
+# Modify the code to generate a plot 
+plot(pruned.ct, main = "pruned.ct tree")  
+
+## The performance of the pruned tree  
+pruned.ct.point.pred <- predict(deeper.ct, data, type = "class")  
+confusionMatrix(pruned.ct.point.pred,                  
+                as.factor(data$isFraud),                  
+                mode = "prec_recall",                  
+                positive = "Yes")
+```
+
+### 6.1.4 Random Forest
+
+```{r}
+library(randomForest) 
+
+rf <- randomForest(    
+  as.factor(isFraud) ~ .,
+  data = train.df,
+  ntree = 500,
+  mtry = 4,          # Number of variables randomly sampled as candidates at each split
+  nodesize = 5,      # Minimum size of terminal nodes
+  importance = TRUE  # Assess variable importance = YES
+)
+
+print(rf)
+plot(rf) # plot.randomForest: #Trees vs. error rate (positive, negative, and overall)
+
+## Variable importance using RF
+varImpPlot(rf)
+
+# The performance of random forest
+rf.pred <- predict(rf, valid.df)
+confusionMatrix(rf.pred, 
+                as.factor(valid.df$isFraud), 
+                mode = "prec_recall",
+                positive = "Yes")
+```
+
+### 6.1.5 ROC & AOC
+
+```{r Packages4}
+if (!require(MLeval)) {install.packages("MLeval"); library(MLeval)}  
+install.packages(c("Hmisc", "ROCR", "gridExtra", "pander", "reshape2", "lazyeval", "moments", "entropy"))
+install.packages("funModeling")
+install.packages("path_to_downloaded_file", repos = NULL, type="source")
+library(caret) 
+library(pROC)
+library(summarytools)
+library(tidyverse)
+library(funModeling)
+```
+
+```{r Data Preparation1}
+data.df <- read.csv("data_5_features.csv")
+str(data.df)
+head(data.df)
+
+# Change the data types
+data.df$isFraud <- factor(data.df$isFraud,
+                         levels = c("Yes", "No"),
+                         labels = c("Yes", "No"))
+```
+
+```{r Split data1}
+train.index.cv <-
+  createDataPartition(data.df$isFraud, p = 0.9, list = FALSE)
+train.df.cv <- data.df[train.index.cv,] 
+test.df.cv <- data.df[-train.index.cv,] 
+```
+
+```{r Train logistic regression (LR) and random forests (RF) models using the function1}
+# Define training control (LR has no built-in CV)
+train.ctrl.cv <- trainControl(
+  method = "cv",
+  number = 6,
+  classProbs = T,
+  savePredictions = T   # Required for calculating ROC
+) 
+
+fit.lr <- caret::train(
+  isFraud ~ .,
+  data = train.df.cv,
+  trControl = train.ctrl.cv,
+  method = "glm",
+  family = binomial()
+)
+
+fit.rf <- caret::train(
+  isFraud ~ .,
+  data = train.df.cv,
+  trControl = train.ctrl.cv,
+  method = "rf"
+) # this statement will take a while 
+```
+
+```{r Train KNN model using the function1}
+fit.knn <- train(     
+  isFraud ~ .,     
+  data = train.df.cv,     
+  trControl = train.ctrl.cv,     
+  method = "knn" )
+```
+
+```{r Calculate performance1}
+## Calculating performance on testing set ----
+# Performance for logistic regression 
+pred.lr <- predict(fit.lr, newdata = test.df.cv[, -6])
+# To compare, predicted and reference *must have the same level definition*
+pred.lr <- relevel(pred.lr, ref = "Yes")
+
+confusionMatrix(
+  data = as.factor(pred.lr),
+  reference = as.factor(test.df.cv$isFraud),
+  mode = "prec_recall",
+  positive = "Yes"
+)
+
+# Performance for Random Forests
+pred.rf <- predict(fit.rf, newdata = test.df.cv[, -6])
+pred.rf <- relevel(pred.rf, ref = "Yes")
+
+confusionMatrix(
+  data = pred.rf,
+  test.df.cv$isFraud,
+  mode = "prec_recall",
+  positive = "Yes"
+)
+
+```
+
+```{r ROC and AUC1}
+## ROC and AUC ----
+install.packages("png")
+eva.result <- evalm(list(fit.lr, fit.rf, fit.knn), gnames = c('Logistic Regression', 'Random Forest','KNN'))
+eva.result$stdres$LR[c("AUC-ROC"), ]
+eva.result$stdres$RF[c("AUC-ROC"), ]
+```
+
+## 6.2 Modeling for selected features
+
+### 6.2.1 KNN
+
+```{r packages5}
+install.packages("FNN", dependencies = TRUE) 
+install.packages("caret", dependencies = TRUE) 
+install.packages("ggplot2", dependencies = TRUE) 
+library(ggplot2) 
+library(caret) 
+library(FNN)
+```
+
+```{r prepare data2}
+data.df <- read.csv("data_5_features.csv") # "data_5_features.csv" is the file of the data after doing the feature selection. 
+str(data.df)
+```
+
+```{r Randomly sample 60% of cases, and get their indices2}
+set.seed(3018) 
+train.index <- sample(1:nrow(data.df), nrow(data.df) * 0.6) 
+train.df <- data.df[train.index, ] 
+valid.df <- data.df[-train.index, ] # The rest 40% for validation hold-outs
+```
+
+```{r The IDs (names) of cases2}
+rownames(data.df) 
+rownames(train.df) 
+rownames(valid.df)
+```
+
+```{r Create datasets for normalization2}
+train.norm.df <- train.df 
+valid.norm.df <- valid.df 
+data.norm.df <- data.df
+```
+
+```{r z-transform all data2}
+library(caret) 
+norm.values <- preProcess(train.df[, 1:5],                            
+                          method = c("center", "scale"))
+```
+
+```{r Apply normalization parameter to all datasets2}
+train.norm.df[, 1:5] <- predict(norm.values, train.df[, 1:5])  
+valid.norm.df[, 1:5] <- predict(norm.values, valid.df[, 1:5]) 
+data.norm.df[, 1:5] <- predict(norm.values, data.df[, 1:5]) 
+data.df 
+data.norm.df
+```
+
+```{r KNN can only be applied on numeric data.2}
+numeric_columns <- sapply(train.norm.df, is.numeric)
+```
+
+```{r Find the best K value (1-100)2}
+library(FNN) 
+accuracy.df <- data.frame(k = seq(1, 100, 1),                            
+                          accuracy = rep(0, 100))  
+
+for (i in 1:100) {   
+  knn.pred <- knn(     
+    train = train.norm.df[, numeric_columns],     
+    test = valid.norm.df[, numeric_columns],     
+    cl = train.norm.df[, 6],     
+    k = i   
+    )   
+  pred <- factor(knn.pred, levels = c("Yes", "No"))   
+  actual <- factor(valid.norm.df[, 6], levels = c("Yes", "No"))      
+  
+  accuracy.df[i, "accuracy"] <- confusionMatrix(pred, actual)$overall[1] 
+  }  
+
+accuracy.df 
+# Find the row with the highest accuracy 
+max_accuracy_row_index <- which.max(accuracy.df$accuracy) 
+max_accuracy_k <- accuracy.df$k[max_accuracy_row_index] 
+cat("Highest accuracy k value:", max_accuracy_k) 
+```
+
+```{r Create the plot of chooosing the best K 2}
+accuracy_plot <- ggplot(data = accuracy.df, aes(x = k, y = accuracy)) +   
+  geom_line() +   
+  geom_point() +   
+  labs(title = "Accuracy vs. k Value",        
+       x = "k Value",        
+       y = "Accuracy") +   
+  theme_minimal() 
+plot(accuracy_plot) 
+ggsave("accuracy_plot.png", plot = accuracy_plot, width = 10, height = 6)
+```
+
+The result for best K is 42
+
+```{r k = 42}
+nn42 <- knn(   
+  train = train.norm.df[, numeric_columns],   
+  test = valid.norm.df[, numeric_columns],   
+  cl = train.norm.df[, 6],   
+  k = 42,   
+  prob = TRUE 
+  ) 
+nn42 
+(pred <- factor(nn42, levels = c("Yes", "No"))) 
+(actual <- factor(valid.norm.df[, 6], 
+                  levels = c("Yes", "No")))    
+
+# confusionMatrix 
+# The confusionMatrix method here uses a fixed cutoff = 0.5.  
+confusionMatrix(pred, actual) 
+confusionMatrix(pred, actual, mode = "prec_recall") 
+confusionMatrix(pred, actual)$table 
+confusionMatrix(pred, actual)$byClass["Precision"] 
+confusionMatrix(pred, actual)$byClass["Recall"] 
+confusionMatrix(pred, actual)$overall[1] 
+confusionMatrix(pred, actual)$overall["Accuracy"]
+```
+
+```{r Cross-validation, can not get the result}
+# Define the number of folds for cross-validation 
+num_folds <- 10   
+
+# Define the control parameters for cross-validation 
+ctrl <- trainControl(method = "cv",   # Use cross-validation                      
+                     number = num_folds)  
+k_grid <- expand.grid(k = seq(1, 100, by = 1))  
+
+# Train the KNN model using cross-validation 
+knn_model <- train(train.norm.df[, numeric_columns],                       
+                   y = train.norm.df[, 6],                       
+                   method = "knn",   # Use k-nearest neighbors                    
+                   trControl = ctrl,   # Use the defined control parameters       
+                   tuneGrid = k_grid)   
+
+# Print the cross-validated results 
+print(knn_model)  
+
+# Plot the cross-validated results 
+plot(knn_model)  
+
+# Plot the cross-validated results with modified x-axis labels 
+cv_results <- knn_model$results
+
+# Customize x-axis labels 
+x_labels <- seq(0, 100, by = 10)   
+
+# Create the plot using ggplot2 
+ggplot(cv_results, aes(x = k, y = Accuracy)) +   
+  geom_line() +   
+  xlab("k") +   
+  ylab("Accuracy") +   
+  scale_x_continuous(breaks = x_labels, labels = x_labels)
+```
+
+The result for best K is 9
+
+```{r K =9}
+nn9 <- knn(   
+  train = train.norm.df[, numeric_columns],   
+  test = valid.norm.df[, numeric_columns],   
+  cl = train.norm.df[, 24],   
+  k = 9,   
+  prob = TRUE 
+  ) 
+nn9  
+
+(pred <- factor(nn9, levels = c("Yes", "No"))) 
+(actual <- factor(valid.norm.df[, 24], levels = c("Yes", "No"))) 
+
+# confusionMatrix 
+# The confusionMatrix method here uses a fixed cutoff = 0.5.  
+confusionMatrix(pred, actual) 
+confusionMatrix(pred, actual, mode = "prec_recall") 
+confusionMatrix(pred, actual)$table 
+confusionMatrix(pred, actual)$byClass["Precision"] 
+confusionMatrix(pred, actual)$byClass["Recall"] 
+confusionMatrix(pred, actual)$overall[1] 
+confusionMatrix(pred, actual)$overall["Accuracy"]
+```
+
+### 6.2.2 Logistic Regression
+
+```{r Packages6}
+install.packages("tidyverse", dependencies = TRUE) 
+install.packages("caret", dependencies = TRUE) 
+install.packages("ggplot2", dependencies = TRUE) 
+library(ggplot2) 
+library(caret)  
+library(tidyverse)
+```
+
+```{r Prepare enviornment and data2, echo=FALSE}
+rm(list = ls()) 
+data.df <- read_csv("data_5_features.csv") # dataset after feature selection 
+summary(data.df)  
+
+library(summarytools) 
+data.df |> dfSummary() |> view()  
+
+data.df$isFraud<-factor( bank.df$isFraud,                         
+                         levels=c("Yes","No"),                         
+                         labels=c("Yes","No"))
+```
+
+```{r Partition data2}
+set.seed(3018) 
+train.index <- sample(c(1:nrow(data.df)), 
+                      nrow(data.df) * 0.6)
+```
+
+```{r Create the training and validation datasets2}
+train.df <- data.df[train.index,] 
+valid.df <- data.df[-train.index,] 
+str(train.df); str(valid.df)
+```
+
+```{r Fit the logistic regression model2}
+logit.reg <- glm(isFraud ~ . - security_type, data = train.df, family = "binomial") options(scipen = 999)  
+summary(logit.reg) 
+coef(logit.reg)
+```
+
+```{r Calculate the odds2}
+result.with.odds <- data.frame(coefficients = coef(logit.reg), Odds = exp(coef(logit.reg))) 
+round(result.with.odds, 3)
+```
+
+```{r Predict2}
+logit.reg.pred <-   
+  predict(logit.reg,            
+          valid.df[, -6],                
+          type = "response")    
+
+# first 20 actual and predicted records 
+data.frame(actual = valid.df$isFraud[1:20],             
+           predicted = logit.reg.pred[1:20]) 
+```
+
+```{r Convert values to factor with levels2}
+predicted <- factor(ifelse(logit.reg.pred > 0.5, "Yes", "No"), 
+                    levels = c("Yes", "No")) 
+actual <- factor(valid.df$isFraud, levels = c("Yes", "No")) 
+```
+
+```{r Calculate confusion matrix2}
+confusionMatrix(predicted, actual, mode = "prec_recall", positive = "Yes")
+```
+
+```{r Visualizing probabilities va label in validation data2}
+data.frame(actual = valid.df$isFraud,             
+           predicted = logit.reg.pred) |>    
+  sample_n(10000) |> # 10000 cases      
+  ggplot(aes(x=predicted,y=actual))+   
+  geom_point()+   
+  geom_jitter(width = 0.1,                   
+              height = 0.1,                
+              aes(colour = actual)) 
+table(valid.df$isFraud) 
+ggplot(valid.df, 
+       aes(factor(isFraud),fill=isFraud))+   
+  geom_bar(aes(y=(..count..)/sum(..count..))) +   
+  ylab("Ratio") 
+```
+
+```{r The imbalance of the data2}
+table(valid.df$isFraud) valid.df |>    
+  ggplot(aes(x = factor(isFraud), # two classes              
+             fill = factor(isFraud))) #two colors   
+  geom_bar(aes(y = after_stat(count / sum(count))),            
+         alpha = 0.7) +     
+  ylab("Ratio")
+```
+
+```{r Cross-valiation LR2}
+train.index.cv <- createDataPartition(data.df$isFraud, p=0.9, list=FALSE) 
+train.df.cv <- data.df[ train.index.cv, ] # for training and cross-validation 
+test.df.cv <- data.df[ -train.index.cv, ] # for testing!
+
+# Define training control using caret (glm has no built-in CV) 
+train.ctrl.cv <- trainControl(method = "cv", number = 6) 
+
+lr.model <- train(   
+  isFraud ~ .,   
+  data = train.df.cv,   
+  trControl = train.ctrl.cv,   
+  method = "glm",   
+  family = binomial() 
+  )  
+
+summary(lr.model)
+```
+
+```{r Generate predicted probabilities on the test dataset2}
+(pred <- predict(lr.model, newdata=test.df.cv)) 
+confusionMatrix(data=pred,                  
+                test.df.cv$isFraud,                  
+                mode = "prec_recall",                 
+                positive = "Yes")
+```
+
+```{r Variable importance3}
+varImp(lr.model)  
+install.packages("regclass")  
+library(regclass) 
+VIF(logit.reg)
+```
+
+### 6.2.3 Decision Tree
+
+```{r Packages7}
+library(rpart) 
+library(rpart.plot) 
+library(visNetwork) 
+library(caret)  
+library(adabag)  
+library(randomForest)
+```
+
+```{r Prepare the data2}
+data <- read.csv("data_5_features.csv") 
+summary(data) 
+set.seed(3018) 
+train.index <- createDataPartition(y = data$isFraud,                                                                  p = 0.6,                                    
+                                   list = FALSE)  
+train.df <- data[train.index,] 
+valid.df <- data[-train.index,] 
+```
+
+```{r Get prediction on training set with default tree2}
+default.ct <- rpart(   
+  isFraud ~ .,    
+  data = train.df,   
+  method = "class",        
+  cp = 0.01,    # complexity parameter   
+  minsplit = 1  # the minimum number of observations that must exist in a node in order for a split to be attempted. 
+)  
+
+# plot tree 
+rpart.plot(default.ct) 
+visTree(default.ct, data = train.df, main = "default.ct tree") 
+```
+
+```{r Variable importance4}
+default.ct$variable.importance
+```
+
+```{r Check performance for default tree2}
+default.ct.point.pred.train <-   
+  predict(default.ct, train.df, type = "class") 
+confusionMatrix(default.ct.point.pred.train,                 
+                as.factor(train.df$isFraud),                 
+                mode = "prec_recall",                 
+                positive = "Yes") 
+```
+
+```{r Full tree2}
+deeper.ct <- rpart(   
+  isFraud ~ .,    
+  data = train.df,   
+  method = "class",        
+  cp = 0,               # cp = 0: no pruning at all   
+  minsplit = 1          # the min # of cases for another split 
+)  
+
+rpart.plot(deeper.ct)  
+
+# count the # of leaves 
+sum(deeper.ct$frame$var == "<leaf>")  
+
+## A better visualization of complex trees  
+visTree(deeper.ct, main = "deeper.ct tree") 
+```
+
+```{r Default tree vs. full tree on training data2}
+# default tree on training set 
+d_tp <- predict(default.ct, train.df, type = "class") 
+d_tc <- confusionMatrix(d_tp, as.factor(train.df$isFraud), mode = "prec_recall", positive = "Yes")  
+
+# full tree on training set 
+dp_tp <- predict(deeper.ct, train.df, type = "class") 
+dp_tc <- confusionMatrix(dp_tp, as.factor(train.df$isFraud), mode = "prec_recall", positive = "Yes")
+```
+
+```{r Default tree vs. full tree on validation data2}
+# default tree on validation set 
+d_vp <- predict(default.ct, valid.df, type = "class") 
+d_vc <- confusionMatrix(d_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes")  
+
+# full tree on validation set 
+dp_vp <- predict(deeper.ct, valid.df, type = "class") 
+dp_vc <- confusionMatrix(dp_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes") 
+confusionMatrix(dp_vp, as.factor(valid.df$isFraud), mode = "prec_recall", positive = "Yes")
+```
+
+```{r Compare key results in a table2}
+result <- data.frame(   
+  Prec = c(d_tc$byClass["Precision"], dp_tc$byClass["Precision"], d_vc$byClass["Precision"], dp_vc$byClass["Precision"]),   
+  Recall = c(d_tc$byClass["Recall"], dp_tc$byClass["Recall"], d_vc$byClass["Recall"], dp_vc$byClass["Recall"]),   
+  F1 = c(d_tc$byClass["F1"], dp_tc$byClass["F1"], d_vc$byClass["F1"], dp_vc$byClass["F1"]) 
+)  
+
+result <- cbind(Model = c("Default", "Full", "Default", "Full"),                 
+                Data = c("Train", "Train", "Valid", "Valid"),                 
+                round(result, 3))  # add 2 columns  
+print(result)
+```
+
+```{r Reshape for plotting2}
+library(tidyr)  
+
+res_plot <- result |>    
+  pivot_longer(cols = c("Prec", "Recall", "F1"), names_to = "Metric", values_to = "Value")  
+
+library(ggplot2) 
+ggplot(res_plot, aes(x = Model, y = Value, fill = Data, color = Data)) +   
+  geom_col(position = "dodge") +     
+  facet_wrap(~ Metric, scales = "free_y") +   
+  labs(x = "Model", y = "Value", fill = "Data", color = "Data")
+```
+
+```{r Find the best vp value2}
+cv.ct <- rpart(   
+  isFraud ~ .,   
+  data = data,        # the whole dataset for cross-validation   
+  method = "class",   
+  cp = 0.01,   
+  minsplit = 5,          # no split when branch < 5   
+  xval = 5               # 5-fold cross-validation 
+) 
+printcp(cv.ct) # printing the cp table 
+plotcp(cv.ct)  # plotting the cp table 
+(cp.min.err <- cv.ct$cptable[which.min(cv.ct$cptable[, "xerror"]), "CP"])
+```
+
+```{r Prune using the cp that minimizes xerror2}
+pruned.ct <- prune(cv.ct, cp = cp.min.err)  
+
+# how does this pruned tree look like? 
+sum(pruned.ct$frame$var == "<leaf>")  
+visTree(pruned.ct, main = "pruned.ct tree") 
+# Modify the code to generate a plot 
+plot(pruned.ct, main = "pruned.ct tree")  
+
+## The performance of the pruned tree  
+
+pruned.ct.point.pred <- predict(deeper.ct, data, type = "class")  
+confusionMatrix(pruned.ct.point.pred,                  
+                as.factor(data$isFraud),                  
+                mode = "prec_recall",                  
+                positive = "Yes")
+```
+
+### 6.2.4 Random Forest
+
+```{r}
+library(randomForest)   
+rf <- randomForest(       
+  as.factor(isFraud) ~ .,   
+  data = train.df,   
+  ntree = 500,   
+  mtry = 4,          # Number of variables randomly sampled as candidates at each split   
+  nodesize = 5,      # Minimum size of terminal nodes   
+  importance = TRUE  # Assess variable importance = YES 
+)  
+
+print(rf) 
+plot(rf) # plot.randomForest: #Trees vs. error rate (positive, negative, and overall)  
+
+## Variable importance using RF 
+varImpPlot(rf)  
+
+# The performance of random forest 
+rf.pred <- predict(rf, valid.df) 
+confusionMatrix(rf.pred,                  
+                as.factor(valid.df$isFraud),                  
+                mode = "prec_recall",                 
+                positive = "Yes")
+```
+
+### 6.2.5 ROC & AUC
+
+```{r Packages8}
+if (!require(MLeval)) {install.packages("MLeval"); library(MLeval)}  
+install.packages(c("Hmisc", "ROCR", "gridExtra", "pander", "reshape2", "lazyeval", "moments", "entropy"))
+install.packages("funModeling")
+install.packages("path_to_downloaded_file", repos = NULL, type="source")
+library(caret) 
+library(pROC)
+library(summarytools)
+library(tidyverse)
+library(funModeling)
+```
+
+```{r Data Preparation2}
+data.df <- read.csv("data_5_features.csv")
+str(data.df)
+head(data.df)
+
+# Change the data types
+data.df$isFraud <- factor(data.df$isFraud,
+                         levels = c("Yes", "No"),
+                         labels = c("Yes", "No"))
+```
+
+```{r Split data2}
+train.index.cv <-
+  createDataPartition(data.df$isFraud, p = 0.9, list = FALSE)
+train.df.cv <- data.df[train.index.cv,] 
+test.df.cv <- data.df[-train.index.cv,] 
+```
+
+```{r Train logistic regression (LR) and random forests (RF) models using the function2}
+# Define training control (LR has no built-in CV)
+train.ctrl.cv <- trainControl(
+  method = "cv",
+  number = 6,
+  classProbs = T,
+  savePredictions = T   # Required for calculating ROC
+) 
+
+fit.lr <- caret::train(
+  isFraud ~ .,
+  data = train.df.cv,
+  trControl = train.ctrl.cv,
+  method = "glm",
+  family = binomial()
+)
+
+fit.rf <- caret::train(
+  isFraud ~ .,
+  data = train.df.cv,
+  trControl = train.ctrl.cv,
+  method = "rf"
+) # this statement will take a while 
+```
+
+```{r Train KNN model using the function2}
+fit.knn <- train(     
+  isFraud ~ .,     
+  data = train.df.cv,     
+  trControl = train.ctrl.cv,     
+  method = "knn" 
+  )
+```
+
+```{r Calculate performance2}
+## Calculating performance on testing set ----
+# Performance for logistic regression 
+pred.lr <- predict(fit.lr, newdata = test.df.cv[, -6])
+# To compare, predicted and reference *must have the same level definition*
+pred.lr <- relevel(pred.lr, ref = "Yes")
+
+confusionMatrix(
+  data = as.factor(pred.lr),
+  reference = as.factor(test.df.cv$isFraud),
+  mode = "prec_recall",
+  positive = "Yes"
+)
+
+# Performance for Random Forests
+pred.rf <- predict(fit.rf, newdata = test.df.cv[, -6])
+pred.rf <- relevel(pred.rf, ref = "Yes")
+
+confusionMatrix(
+  data = pred.rf,
+  test.df.cv$isFraud,
+  mode = "prec_recall",
+  positive = "Yes"
+) 
+```
+
+```{r ROC and AUC2}
+## ROC and AUC ----
+install.packages("png")
+eva.result <- evalm(list(fit.lr, fit.rf, fit.knn), gnames = c('Logistic Regression', 'Random Forest','KNN'))
+eva.result$stdres$LR[c("AUC-ROC"), ]
+eva.result$stdres$RF[c("AUC-ROC"), ]
+```
+
+# 7. Discussion and Recommendation
+
+-   From Visualization:
+
+Overall, the visualization suggests that geographically the main customers are from the US and UK.  Most customers are male customers and accounts are personal accounts. In case of fraud, whether the transaction is a one-time transaction has a high relationship with the fraud rate. Also, a debt-to-ratio rate higher than 50% also has a high potential to be a fraud. What’s more, online transactions are more easily fraudulent than offline ones.
+
+-   From Modeling:
+
+The comprehensive analysis using various predictive models, particularly the Random Forest model, has provided significant insights into the factors influencing the likelihood of fraudulent activities. The Random Forest model, with the highest accuracy of 87.82%, along with the logistic regression analysis, has identified key variables that are crucial in predicting fraud. These findings have important business implications:
+
+Key features Influencing Fraud Likelihood:
+
+-   Loan-to-Value Ratio (LTV): A greater LTV is associated with a higher risk of fraudulent activity. This implies that fraudulent activity is more likely to occur in transactions or accounts when the counterparty requests greater credit than the asset worth. Financial institutions may find this especially helpful in thoroughly examining loans or transactions with high loan-to-value.
+
+-   Income: The chance of fraud is negatively correlated with income; the likelihood of fraud is lower at higher income levels. This knowledge can help with risk assessment plans, since accounts with lower reported incomes may need more extensive monitoring and verification procedures.
+
+-   Debt-to-Income Ratio (dtir1): The probability of fraud increases as the ratio rises. This suggests that people or organizations who are overly indebted or experiencing financial hardship are more inclined to commit fraud. One strategic objective to stop fraud would be to keep an eye on consumers with high dtir1.
+
+To sum up, a strong foundation for identifying and stopping fraud is provided by utilizing the logistic regression's precise insights into important financial factors and the Random Forest model's predictive capacity. By incorporating these realizations into workable, operational plans, fraud management systems' effectiveness may be greatly increased while organizational interests are safeguarded.
+
+# 8. Limitations
+
+1.  Treatment of invalid data
+
+When doing data preparation, our approach to invalid data is to convert the invalid data using the column with the median or highest frequency of that column's data. It is better than simply deleting them, but still not accurate.
+
+*Suggestions:*
+
+-   Data validation. When collecting data in the future, strict data validation should be done to prevent invalid data from going to the dataset. For example, we can use real-time software to validate data immediately;
+
+-   Learn more about data wrangling techniques and find more appropriate ways to deal with invalid data.
+
+2.  Directly remove the Job column
+
+When we were doing data preparation, we chose to directly delete the Job column because it was too redundant and difficult to go through and analyze. But actually, this behavior is very rough.
+
+*Suggestions:*
+
+-   Group of Jobs. When we collect data in the future, we can make broad groupings of the jobs first to facilitate our subsequent analysis;
+
+-   Frequency statistics and screening. Calculate the frequency of each job and filter out those with the highest number of occurrences. If the frequency of certain jobs is very low, consider categorizing them as "other" or simply deleting them to reduce the complexity of the dataset;
+
+-   Data sampling. We do the removal before the data sampling, instead, we can focus the jobs to do the data sampling and reduce the complexity of the dataset.
+
+(3) Include too many features during correlation analysis
+
+During the correlation analysis phase, some features we included are related. Although the correlation is not too strong, it will probably affect the results of the further analysis outcomes.
+
+*Suggestions:*
+
+-   Exclude some features that are related which will affect the analysis of the influence on the target feature. And the features that are more relevant to the target variable, which can be selected for further analysis.
+
+-   Expand the sample size. To lessen the effect of correlation, we can try to expand the sample size, data diversity and variation.
+
+(4) Influence by the hardware
+
+The volume of data in the dataset we used is relatively high, which has a high requirement for storage and hardware. For example, the strong computing ability and high network speed. So, the outcome of the analysis may be influenced by the hardware we used.
+
+*Suggestions:*
+
+-   Use the equipment provided by the laboratory, which has a better computing performance than the personal equipment.
+
+-   Improve storage capacity. Ensure that there is sufficient storage for datasets to be stored. If local storage is insufficient, think about processing the data by using a distributed storage system or the Cloud.
